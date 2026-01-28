@@ -1,10 +1,13 @@
+// Real-Time Collaborative Editor with Supabase Authentication
+// Main application component handling auth flow and document management
+
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
-import { 
-  ClassicEditor, 
-  Essentials, 
-  Paragraph, 
-  Bold, 
+import {
+  ClassicEditor,
+  Essentials,
+  Paragraph,
+  Bold,
   Italic,
   Heading,
   Link,
@@ -19,7 +22,7 @@ import {
   TableToolbar,
   CloudServices
 } from 'ckeditor5';
-import { 
+import {
   FormatPainter,
   RealTimeCollaborativeEditing,
   RealTimeCollaborativeComments,
@@ -28,178 +31,113 @@ import {
   Comments,
   TrackChanges,
   RevisionHistory,
-  // CKEditor AI – content recommendations (Chat, Quick Actions, Review)
   AIChat,
   AIQuickActions,
   AIActions,
   AIReviewMode,
   AIBalloon,
   AIEditorIntegration
-  // PresenceList - removed because it requires a container element
-  // We're already showing active users manually in the header
 } from 'ckeditor5-premium-features';
 
 import 'ckeditor5/ckeditor5.css';
 import 'ckeditor5-premium-features/ckeditor5-premium-features.css';
 import './App.css';
 
-// Setup Warning Component
-function SetupWarning() {
-  return (
-    <div className="setup-warning">
-      <h2 className="setup-warning__title">⚠️ Configuration Required</h2>
-      <p className="setup-warning__description">
-        To use CKEditor's official collaboration, you need to configure CKEditor Cloud Services.
-      </p>
-      
-      <div className="setup-warning__section">
-        <h3 className="setup-warning__section-title">Quick Setup Steps:</h3>
-        <ol className="setup-warning__steps">
-          <li>
-            <strong>Sign up for CKEditor Cloud Services:</strong>{' '}
-            <a 
-              href="https://ckeditor.com/cloud-services/" 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="setup-warning__link"
-            >
-              https://ckeditor.com/cloud-services/
-            </a>
-          </li>
-          <li>
-            <strong>Get your credentials</strong> from the CKEditor Cloud Services dashboard:
-            <ul className="setup-warning__sublist">
-              <li>WebSocket URL (format: <code>wss://your-environment-id.cke-cs.com/ws</code>)</li>
-              <li>Environment ID (optional)</li>
-            </ul>
-          </li>
-          <li>
-            <strong>Update your <code>.env</code> file</strong> (already created in project root):
-            <pre className="setup-warning__code">
-{`VITE_CKEDITOR_TOKEN_URL=http://localhost:3001/cs-token
-VITE_CKEDITOR_WS_URL=wss://your-environment-id.cke-cs.com/ws
-VITE_CKEDITOR_ENVIRONMENT_ID=your-environment-id`}
-            </pre>
-          </li>
-          <li>
-            <strong>Restart your dev server</strong> after updating <code>.env</code>
-          </li>
-        </ol>
-      </div>
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Login from './components/Login';
+import DocumentDashboard from './components/DocumentDashboard';
+import { supabase } from './lib/supabase';
 
-      <div className="setup-warning__note">
-        <h4 className="setup-warning__note-title">📝 Note:</h4>
-        <p className="setup-warning__note-text">
-          The <code>server/server.js</code> file includes a token endpoint at <code>/cs-token</code>.
-          For production, you'll need to update it to generate real tokens from CKEditor Cloud Services API.
-          See the TODO comments in the server code.
-        </p>
-      </div>
-
-      <div className="setup-warning__alternative">
-        <h4 className="setup-warning__alternative-title">Alternative: Self-Hosted Collaboration Server</h4>
-        <p className="setup-warning__alternative-text">
-          You can also self-host CKEditor Collaboration Server. See{' '}
-          <a 
-            href="https://ckeditor.com/docs/cs/latest/guides/collaboration-server/self-hosted-collaboration-server.html" 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="setup-warning__link"
-          >
-            CKEditor documentation
-          </a> for details.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// CKEditor Cloud Services configuration (set in .env, never commit .env)
-// VITE_CKEDITOR_TOKEN_URL - Your token endpoint URL (defaults to localhost:3001)
-// VITE_CKEDITOR_WS_URL - CKEditor Cloud Services WebSocket URL (required)
-// VITE_CKEDITOR_ENVIRONMENT_ID - Your CKEditor Cloud Services Environment ID (optional)
-// VITE_CKEDITOR_LICENSE_KEY - Your CKEditor license key (required for premium features)
+// Environment variables
 const TOKEN_URL = import.meta.env.VITE_CKEDITOR_TOKEN_URL || 'http://localhost:3001/cs-token';
-const WS_URL = import.meta.env.VITE_CKEDITOR_WS_URL || ''; // REQUIRED: Set your CKEditor Cloud Services WebSocket URL
+const WS_URL = import.meta.env.VITE_CKEDITOR_WS_URL || '';
 const ENVIRONMENT_ID = import.meta.env.VITE_CKEDITOR_ENVIRONMENT_ID || '';
 const LICENSE_KEY = import.meta.env.VITE_CKEDITOR_LICENSE_KEY || '';
 
-function App() {
-  const [content, setContent] = useState('<p>Start collaborating!</p>');
-  // Use lazy initialization to avoid calling impure functions during render
-  const [userId] = useState(() => {
-    let storedUserId = localStorage.getItem('userId');
-    if (!storedUserId) {
-      storedUserId = `user_${Math.random().toString(36).substr(2, 9)}_${Date.now()}`;
-      localStorage.setItem('userId', storedUserId);
-    }
-    return storedUserId;
-  });
-
-  const [userName, setUserName] = useState(() => {
-    const storedUserName = localStorage.getItem('userName');
-    if (!storedUserName) {
-      const defaultName = `User ${userId.slice(-4)}`;
-      localStorage.setItem('userName', defaultName);
-      return defaultName;
-    }
-    return storedUserName;
-  });
-
-  const [documentId] = useState(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    let docId = urlParams.get('doc');
-    if (!docId) {
-      docId = `doc_${Math.random().toString(36).substr(2, 9)}`;
-      window.history.replaceState({}, '', `?doc=${docId}`);
-    }
-    return docId;
-  });
+// Editor Component
+function Editor({ document, onBack }) {
+  const { user, getAccessToken } = useAuth();
+  const [content, setContent] = useState('<p>Loading...</p>');
   const [activeUsers, setActiveUsers] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
-  // Initialize connection error if WS_URL is not configured
-  const [connectionError, setConnectionError] = useState(() => {
-    if (!WS_URL) {
-      return 'CKEditor Cloud Services WebSocket URL not configured. ' +
-        'Please set VITE_CKEDITOR_WS_URL environment variable or update App.jsx';
-    }
-    return null;
-  });
-  
+  const [connectionError, setConnectionError] = useState(null);
+  const [editorLoading, setEditorLoading] = useState(true);
   const editorRef = useRef(null);
   const stateCheckIntervalRef = useRef(null);
-  const [editorKey] = useState(() => Math.random()); // Stable key to prevent remounts
+  const [editorKey] = useState(() => Math.random());
+
+  // Custom token URL function (works with or without authentication)
+  const tokenUrl = useCallback(async () => {
+    const url = `${TOKEN_URL}?channelId=${encodeURIComponent(document.document_id)}`;
+
+    try {
+      const headers = {};
+
+      // Add Authorization header if user is logged in
+      const token = getAccessToken ? getAccessToken() : null;
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers
+      });
+
+      if (!response.ok) {
+        throw new Error(`Token request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const ckEditorToken = await response.text();
+      return ckEditorToken;
+    } catch (error) {
+      console.error('Error fetching CKEditor token:', error);
+      throw error;
+    }
+  }, [document.document_id, getAccessToken]);
+
+  // Save document metadata on content change (only if user is authenticated)
+  const saveDocumentMetadata = useCallback(async () => {
+    if (!user) {
+      // Anonymous users can't update metadata
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .update({
+          last_edited_by: user.id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', document.id);
+
+      if (error) {
+        console.error('Error updating document metadata:', error);
+      }
+    } catch (err) {
+      console.error('Error saving document:', err);
+    }
+  }, [document.id, user]);
 
   // Handle editor ready
   const handleReady = useCallback((editorInstance) => {
     console.log('Editor ready with CKEditor collaboration');
     editorRef.current = editorInstance;
-    
-    // Listen for collaboration events
+    setEditorLoading(false); // Hide loader when editor is ready
+
     const collaborationPlugin = editorInstance.plugins.get('RealTimeCollaborativeEditing');
-    
+
     if (collaborationPlugin) {
-      // Function to check and update connection state
       const updateConnectionState = () => {
         try {
-          // Get the WebSocketGateway from the collaboration plugin
           const gateway = collaborationPlugin._gateway || collaborationPlugin.gateway;
           if (gateway) {
             const state = gateway.state;
-            console.log('WebSocketGateway state:', state);
-            // 'connected' means both browser and WebSocket are connected
             const connected = state === 'connected';
             setIsConnected(connected);
             if (!connected) {
               console.log('Connection state:', state);
-            }
-          } else {
-            // Fallback: check if we can access state directly
-            const state = collaborationPlugin.state || collaborationPlugin._state;
-            if (state !== undefined) {
-              const connected = state === 'connected' || state === 'authenticated';
-              console.log('Collaboration plugin state:', state, 'connected:', connected);
-              setIsConnected(connected);
             }
           }
         } catch (e) {
@@ -207,23 +145,18 @@ function App() {
         }
       };
 
-      // Check initial state after a delay to allow plugin to initialize
       setTimeout(updateConnectionState, 1000);
-      
-      // Clear any existing interval
+
       if (stateCheckIntervalRef.current) {
         clearInterval(stateCheckIntervalRef.current);
       }
-      
-      // Also check periodically in case events don't fire
+
       stateCheckIntervalRef.current = setInterval(updateConnectionState, 2000);
 
-      // Listen for connection status changes
       collaborationPlugin.on('connectionStateChange', (evt, data) => {
-        console.log('Collaboration connection state change event:', data);
+        console.log('Collaboration connection state change:', data);
         updateConnectionState();
-        
-        // Also check data object if available
+
         if (data) {
           if (data.isConnected === true || data.state === 'connected') {
             setIsConnected(true);
@@ -235,17 +168,17 @@ function App() {
         }
       });
 
-      // Listen for user list updates - if users are present, we're connected
       collaborationPlugin.on('usersChange', (evt, data) => {
         console.log('Active users:', data.users);
-        // Filter out current user
-        const otherUsers = data.users.filter(u => u.id !== userId);
+        // Filter out current user (if authenticated)
+        const currentUserId = user?.id;
+        const otherUsers = currentUserId
+          ? data.users.filter(u => u.id !== currentUserId)
+          : data.users;
         setActiveUsers(otherUsers);
-        // If we have users, we're definitely connected
         if (data.users && data.users.length > 0) {
           setIsConnected(true);
           setConnectionError(null);
-          // Clear the interval since we know we're connected
           if (stateCheckIntervalRef.current) {
             clearInterval(stateCheckIntervalRef.current);
             stateCheckIntervalRef.current = null;
@@ -253,15 +186,13 @@ function App() {
         }
       });
 
-      // Listen for connection errors
       collaborationPlugin.on('error', (evt, error) => {
         console.error('Collaboration error:', error);
         setConnectionError(error.message || 'Collaboration error occurred');
         setIsConnected(false);
       });
-
     }
-  }, [userId]);
+  }, [user]);
 
   // Cleanup interval on unmount
   useEffect(() => {
@@ -272,30 +203,21 @@ function App() {
     };
   }, []);
 
-  // Handle content change (for display purposes only - collaboration handles sync)
+  // Handle content change
   const handleChange = useCallback((event, editorInstance) => {
     const data = editorInstance.getData();
     setContent(data);
-  }, []);
 
-  // Handle user name change
-  const handleUserNameChange = (e) => {
-    const newUserName = e.target.value.trim() || `User ${userId?.slice(-4)}`;
-    setUserName(newUserName);
-    localStorage.setItem('userName', newUserName);
-    
-    // Update user identity in collaboration if editor is ready
-    if (editorRef.current) {
-      const collaborationPlugin = editorRef.current.plugins.get('RealTimeCollaborativeEditing');
-      if (collaborationPlugin) {
-        // Note: User identity is typically set during editor initialization
-        // You may need to reconnect to update the name
-        console.log('User name changed. Reconnect may be needed to update in collaboration.');
-      }
+    // Debounce save
+    if (handleChange.saveTimeout) {
+      clearTimeout(handleChange.saveTimeout);
     }
-  };
+    handleChange.saveTimeout = setTimeout(() => {
+      saveDocumentMetadata();
+    }, 2000);
+  }, [saveDocumentMetadata]);
 
-  // Editor configuration with CKEditor collaboration
+  // Editor configuration
   const editorConfig = {
     ...(LICENSE_KEY && { licenseKey: LICENSE_KEY }),
     plugins: [
@@ -314,9 +236,8 @@ function App() {
       ImageUpload,
       Table,
       TableToolbar,
-      CloudServices, // Required for collaboration features - must be before collaboration plugins
+      CloudServices,
       FormatPainter,
-      // Real-time collaboration plugins
       RealTimeCollaborativeEditing,
       RealTimeCollaborativeComments,
       RealTimeCollaborativeTrackChanges,
@@ -324,14 +245,12 @@ function App() {
       Comments,
       TrackChanges,
       RevisionHistory,
-      // CKEditor AI – content recommendations (Chat, Quick Actions, Review)
       AIChat,
       AIQuickActions,
       AIActions,
       AIReviewMode,
       AIBalloon,
       AIEditorIntegration
-      // PresenceList removed - requires container element, we show users manually
     ],
     toolbar: {
       items: [
@@ -349,7 +268,6 @@ function App() {
         '|',
         'formatPainter',
         '|',
-        // AI / content recommendations
         'toggleAi',
         'aiQuickActions',
         'ask-ai',
@@ -359,20 +277,14 @@ function App() {
         'redo'
       ]
     },
-    // CKEditor Cloud Services configuration
     cloudServices: {
-      tokenUrl: TOKEN_URL,
+      tokenUrl: tokenUrl,
       webSocketUrl: WS_URL,
       ...(ENVIRONMENT_ID && { environmentId: ENVIRONMENT_ID })
     },
-    // Collaboration configuration
     collaboration: {
-      channelId: documentId || 'default-doc', // Use document ID as channel ID
-      // User identity - this identifies the current user in collaboration
-      // Note: This should match the userId used in token generation
+      channelId: document.document_id
     },
-    // CKEditor AI – content recommendations (Chat, Quick Actions, Review)
-    // Requires license key and Cloud Services; uses same channelId for chat history per document
     ai: {
       container: {
         type: 'overlay',
@@ -380,48 +292,39 @@ function App() {
         visibleByDefault: false
       }
     },
-    // Comments configuration
     comments: {
       editorConfig: {
         extraPlugins: [Bold, Italic, List]
       }
     },
-    // Revision history configuration
     revisionHistory: {
-      editorContainer: null, // Set to editor container element if using revision history viewer
-      viewerContainer: null, // Set to revision history viewer container
-      viewerEditorElement: null, // Set to revision history editor element
-      viewerSidebarContainer: null, // Set to revision history sidebar container
+      editorContainer: null,
+      viewerContainer: null,
+      viewerEditorElement: null,
+      viewerSidebarContainer: null,
       resumeUnsavedRevision: true
     },
-    // Sidebar configuration (for comments/annotations)
     sidebar: {
-      container: null // Set to sidebar container element if using sidebar
+      container: null
     },
-    // Initial data - use initialData in config, not data prop (to avoid conflicts)
     initialData: content
   };
-
 
   return (
     <div className="app">
       <header className="header">
         <div className="header-content">
-          <h1>Real-Time Collaborative Editor</h1>
+          <button onClick={onBack} className="back-button">
+            ← Back to Documents
+          </button>
+          <h1>{document.title}</h1>
           <div className="header-controls">
-            <input
-              type="text"
-              value={userName}
-              onChange={handleUserNameChange}
-              placeholder="Your name"
-              className="user-name-input"
-            />
-            <div className="connection-status">
-              <span className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
-                {isConnected ? '●' : '○'}
-              </span>
-              <span>{isConnected ? 'Connected' : 'Disconnected'}</span>
-            </div>
+            {isConnected && (
+              <div className="connection-status">
+                <span className="status-indicator connected">●</span>
+                <span>Connected</span>
+              </div>
+            )}
             {connectionError && (
               <div className="connection-error">
                 {connectionError}
@@ -430,7 +333,7 @@ function App() {
           </div>
         </div>
         <div className="document-info">
-          <span className="doc-id">Doc ID: {documentId}</span>
+          <span className="doc-id">Doc ID: {document.document_id}</span>
           {activeUsers.length > 0 && (
             <div className="active-users">
               <span>Active users: </span>
@@ -442,20 +345,166 @@ function App() {
             </div>
           )}
         </div>
-      </header> 
+      </header>
 
       <div className="editor-wrapper">
-        <CKEditor
-          key={editorKey}
-          editor={ClassicEditor}
-          config={editorConfig}
-          onReady={handleReady}
-          onChange={handleChange}
-        />
+        {editorLoading && (
+          <div className="editor-loader">
+            <div className="spinner"></div>
+            <p>Loading editor...</p>
+          </div>
+        )}
+        <div style={{ display: editorLoading ? 'none' : 'block', width: '100%' }}>
+          <CKEditor
+            key={editorKey}
+            editor={ClassicEditor}
+            config={editorConfig}
+            onReady={handleReady}
+            onChange={handleChange}
+          />
+        </div>
       </div>
-
-      {!WS_URL && <SetupWarning />}
     </div>
+  );
+}
+
+// Main App Component
+function AppContent() {
+  const { user, loading } = useAuth();
+  const [currentView, setCurrentView] = useState('dashboard');
+  const [currentDocument, setCurrentDocument] = useState(null);
+  const [urlDocId, setUrlDocId] = useState(null);
+
+  // Track URL changes
+  useEffect(() => {
+    const updateUrlDocId = () => {
+      const params = new URLSearchParams(window.location.search);
+      const docId = params.get('doc');
+      console.log('URL changed, doc ID:', docId);
+      setUrlDocId(docId);
+    };
+
+    updateUrlDocId(); // Initial load
+    window.addEventListener('popstate', updateUrlDocId);
+
+    return () => window.removeEventListener('popstate', updateUrlDocId);
+  }, []);
+
+  // Update URL when document changes (but don't clear URL on initial load)
+  const isInitialLoad = useRef(true);
+
+  useEffect(() => {
+    if (currentDocument) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('doc', currentDocument.document_id);
+      window.history.pushState({}, '', url);
+      setUrlDocId(currentDocument.document_id);
+      isInitialLoad.current = false;
+    } else if (!isInitialLoad.current && currentView === 'dashboard') {
+      // Only clear URL if user explicitly went back to dashboard (not on initial load)
+      const url = new URL(window.location.href);
+      url.searchParams.delete('doc');
+      window.history.pushState({}, '', url);
+      setUrlDocId(null);
+    }
+  }, [currentDocument, currentView]);
+
+  // Load document from URL (works even without authentication for public documents)
+  useEffect(() => {
+    console.log('URL effect triggered:', { user: !!user, urlDocId, currentDocument: currentDocument?.document_id, currentView });
+
+    if (urlDocId) {
+      // Check if we need to load a different document
+      const needsLoad = !currentDocument || currentDocument.document_id !== urlDocId;
+
+      if (needsLoad) {
+        console.log('Fetching document from Supabase:', urlDocId);
+
+        // Fetch document from Supabase (works for public documents even without auth)
+        supabase
+          .from('documents')
+          .select('*')
+          .eq('document_id', urlDocId)
+          .maybeSingle() // Use maybeSingle to avoid error if not found
+          .then(({ data, error }) => {
+            console.log('Supabase response:', { data, error, hasData: !!data });
+
+            if (data) {
+              console.log('Document loaded successfully:', data.title, 'is_public:', data.is_public);
+              setCurrentDocument(data);
+              setCurrentView('editor');
+            } else if (error) {
+              console.error('Failed to load document:', error);
+              alert(`Error loading document: ${error.message}`);
+              setCurrentView('dashboard');
+            } else {
+              console.error('Document not found');
+              alert('Document not found or you do not have permission to access it.');
+              setCurrentView('dashboard');
+            }
+          })
+          .catch(err => {
+            console.error('Exception loading document:', err);
+            alert(`Failed to load document: ${err.message}`);
+            setCurrentView('dashboard');
+          });
+      } else {
+        console.log('Document already loaded, skipping fetch');
+      }
+    } else {
+      console.log('No urlDocId present');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlDocId]);
+
+  const handleOpenDocument = (doc) => {
+    setCurrentDocument(doc);
+    setCurrentView('editor');
+  };
+
+  const handleCreateDocument = (doc) => {
+    setCurrentDocument(doc);
+    setCurrentView('editor');
+  };
+
+  const handleBackToDashboard = () => {
+    setCurrentDocument(null);
+    setCurrentView('dashboard');
+  };
+
+  // Show loading state while authenticating OR while loading a document from URL
+  if (loading || (urlDocId && !currentDocument && currentView !== 'dashboard')) {
+    return (
+      <div className="app-loading">
+        <div className="spinner"></div>
+        <p>{loading ? 'Loading...' : 'Loading document...'}</p>
+      </div>
+    );
+  }
+
+  // If there's a document loaded (from URL), show editor even without login
+  if (currentView === 'editor' && currentDocument) {
+    return <Editor document={currentDocument} onBack={handleBackToDashboard} />;
+  }
+
+  // Otherwise require authentication for dashboard
+  if (!user) {
+    return <Login />;
+  }
+
+  return (
+    <DocumentDashboard
+      onOpenDocument={handleOpenDocument}
+      onCreateDocument={handleCreateDocument}
+    />
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

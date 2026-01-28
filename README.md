@@ -1,130 +1,151 @@
 # Real-Time Collaborative Editor with CKEditor 5
 
-A real-time collaborative text editor built with React, CKEditor 5, and **CKEditor's Official Collaboration** (Real-time Collaboration plugin). Multiple users can edit the same document simultaneously with live updates, built-in user presence tracking, and automatic conflict resolution.
+A production-ready real-time collaborative text editor built with React, CKEditor 5, Supabase, and **CKEditor's Official Collaboration**. Features Google OAuth authentication, PostgreSQL document storage, and real-time collaboration with automatic conflict resolution.
 
 ## Features
 
-- ✨ **Real-time Collaboration**: Multiple users can edit the same document simultaneously using CKEditor's official collaboration
+- 🔐 **Authentication**: Google OAuth via Supabase Auth
+- 📝 **Document Management**: Create, edit, and delete documents with metadata storage
+- ✨ **Real-time Collaboration**: Multiple users can edit simultaneously using CKEditor's official collaboration
 - 👥 **User Presence**: Built-in user presence tracking with colored cursors and names
 - 🔄 **Live Updates**: Changes appear instantly across all connected clients
 - 🎯 **Automatic Conflict Resolution**: CKEditor handles conflict resolution using Operational Transformation
-- 💾 **Persistent Sessions**: User IDs and names are stored locally
-- 🔗 **Shareable Links**: Each document has a unique URL that can be shared
-- 💬 **Comments & Track Changes**: Built-in collaboration features (Comments, Track Changes)
+- 💾 **Database Storage**: PostgreSQL via Supabase with Row Level Security
+- 🔒 **Secure Tokens**: JWT-based authentication for CKEditor Cloud Services
+- 💬 **Comments & Track Changes**: Built-in collaboration features
+- 🤖 **AI Features**: CKEditor AI for content recommendations and chat
 
 ## Architecture
 
 - **Frontend**: React + Vite + CKEditor 5 with Real-time Collaboration plugin
-- **Backend**: Node.js + Express (token endpoint for CKEditor Cloud Services)
+- **Backend**: Node.js + Express with JWT token generation
+- **Database**: Supabase PostgreSQL with Row Level Security
+- **Authentication**: Supabase Auth with Google OAuth
 - **Real-time Sync**: CKEditor Cloud Services WebSocket connection
 - **Conflict Resolution**: Operational Transformation (handled by CKEditor)
 
 ## Prerequisites
 
-- Node.js (v16 or higher)
+- Node.js (v18 or higher)
 - npm or yarn
-- **CKEditor Cloud Services account** (or self-hosted collaboration server)
+- **Supabase account** (free tier available)
+- **CKEditor Cloud Services account** with production credentials
+- **Google Cloud Console** project for OAuth
+
+## Quick Start (Development)
+
+This branch (`production-ready`) includes full authentication and database integration. For a quick test:
+
+```bash
+# Install dependencies
+npm install
+cd server && npm install && cd ..
+
+# Copy environment template
+cp .env.example .env
+
+# Set up external services (see Setup Instructions below)
+# Then start both servers:
+cd server && npm start &
+npm run dev
+```
 
 ## Setup Instructions
 
-### 1. Get CKEditor Cloud Services Credentials
+For detailed setup instructions, see:
+- **[Supabase Setup Guide](docs/SUPABASE_SETUP.md)** - Database and authentication setup
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Production deployment instructions
 
-You have two options:
+### Quick Setup Overview
 
-#### Option A: CKEditor Cloud Services (Recommended for Production)
+1. **Create Supabase Project** (https://supabase.com)
+   - Get Project URL and API keys
+   - Run database migrations from `supabase/migrations/`
+   - Configure Google OAuth
 
-1. Sign up at [ckeditor.com/cloud-services](https://ckeditor.com/cloud-services/)
-2. Get your WebSocket URL and Environment ID from the dashboard
-3. Set up a token endpoint (see below)
+2. **Configure Google OAuth** (https://console.cloud.google.com)
+   - Create OAuth 2.0 credentials
+   - Add Supabase callback URL to authorized redirects
 
-#### Option B: Self-Hosted Collaboration Server
-
-Follow the [CKEditor documentation](https://ckeditor.com/docs/cs/latest/guides/collaboration-server/self-hosted-collaboration-server.html) to set up your own collaboration server.
-
-### 2. Install Frontend Dependencies
-
-```bash
-npm install
-```
-
-### 3. Install Server Dependencies
-
-```bash
-cd server
-npm install
-cd ..
-```
+3. **Get CKEditor Credentials** (https://ckeditor.com/cloud-services/)
+   - Get WebSocket URL, Environment ID, License Key, and API Secret
 
 ### 4. Configure Environment Variables
 
-Create a `.env` file in the project root (copy from `.env.example`):
+Create a `.env` file in the project root:
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and add your CKEditor Cloud Services credentials:
+Edit `.env` with your credentials (see `.env.example` for all required variables):
 
 ```env
+# Frontend - Supabase
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+
+# Frontend - CKEditor
 VITE_CKEDITOR_TOKEN_URL=http://localhost:3001/cs-token
-VITE_CKEDITOR_WS_URL=wss://your-environment-id.cke-cs.com
-VITE_CKEDITOR_ENVIRONMENT_ID=your-environment-id
+VITE_CKEDITOR_WS_URL=wss://your-env.cke-cs.com/ws
+VITE_CKEDITOR_ENVIRONMENT_ID=your-env-id
+VITE_CKEDITOR_LICENSE_KEY=your-license-key
+
+# Backend - Supabase
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# Backend - CKEditor
+CKEDITOR_ENVIRONMENT_ID=your-env-id
+CKEDITOR_API_SECRET=your-api-secret
 ```
 
-### 5. Update Token Endpoint (Backend)
+### 5. Start the Application
 
-The server includes a mock token endpoint at `/cs-token`. For production, you need to:
-
-1. Implement proper user authentication
-2. Call CKEditor Cloud Services API to generate tokens
-3. Return the token to the client
-
-See `server/server.js` for the token endpoint implementation and TODO comments.
-
-### 6. Start the Server
-
-In the `server` directory:
-
+**Backend:**
 ```bash
 cd server
 npm start
-# or for development with auto-reload:
-npm run dev
 ```
 
-The server will run on `http://localhost:3001` and provide the token endpoint at `http://localhost:3001/cs-token`
-
-### 7. Start the Frontend Development Server
-
-In the root directory:
-
+**Frontend (in a new terminal):**
 ```bash
 npm run dev
 ```
 
-The frontend will run on `http://localhost:5173`
+### 6. Test the Application
 
-### 8. Open Multiple Browser Windows
-
-1. Open `http://localhost:5173` in one browser window
-2. Open the same URL (or share the document URL) in another window/tab
-3. Start typing in one window and see the changes appear in real-time in the other!
+1. Open http://localhost:5173
+2. Click "Sign in with Google"
+3. Create a new document
+4. Share the document URL with another user or open in another browser
+5. Edit simultaneously and see real-time updates!
 
 ## How It Works
 
-### Document Sharing
+### Authentication Flow
 
-- Each document has a unique ID in the URL (`?doc=doc_xxx`)
-- Share the URL with others to collaborate on the same document
-- If no document ID is provided, a new one is generated automatically
-- The document ID is used as the collaboration `channelId`
+1. User clicks "Sign in with Google"
+2. Supabase Auth redirects to Google OAuth
+3. Google authenticates and redirects back to Supabase
+4. Supabase creates session and returns JWT token
+5. Frontend stores session and shows document dashboard
 
-### User Management
+### Document Management
 
-- User IDs are stored in localStorage
-- You can change your display name in the header
-- Active users are shown in the header with colored badges
-- CKEditor automatically assigns colors to users
+1. User creates document with title and description
+2. Document metadata saved to Supabase PostgreSQL
+3. Unique `document_id` generated for CKEditor channel
+4. Row Level Security ensures users only see their own documents
+5. Document updates tracked with timestamps
+
+### Real-Time Collaboration
+
+1. User opens a document from dashboard
+2. Frontend requests CKEditor token from backend with Authorization header
+3. Backend verifies Supabase JWT and generates CKEditor JWT
+4. CKEditor connects to Cloud Services WebSocket
+5. Multiple users can edit simultaneously with automatic conflict resolution
 
 ### Real-time Synchronization
 
@@ -146,16 +167,31 @@ CKEditor's collaboration uses **Operational Transformation (OT)**:
 ```
 realtime_collab/
 ├── src/
-│   ├── App.jsx          # Main React component with CKEditor collaboration
-│   ├── App.css          # Styles for the collaboration UI
-│   ├── main.jsx         # React entry point
-│   └── index.css        # Global styles
+│   ├── lib/
+│   │   └── supabase.js           # Supabase client configuration
+│   ├── contexts/
+│   │   └── AuthContext.jsx       # Authentication state management
+│   ├── components/
+│   │   ├── Login.jsx/css         # Login UI with Google OAuth
+│   │   └── DocumentDashboard.jsx/css  # Document list and management
+│   ├── App.jsx                   # Main app with routing and editor
+│   ├── App.css                   # Global styles
+│   └── main.jsx                  # React entry point
 ├── server/
-│   ├── server.js        # Express server with token endpoint
-│   └── package.json     # Server dependencies
-├── .env.example         # Environment variables template
-├── package.json         # Frontend dependencies
-└── README.md           # This file
+│   ├── server.js                 # Express server with auth + token generation
+│   ├── supabaseClient.js         # Supabase admin client
+│   ├── ckeditorToken.js          # CKEditor JWT generation
+│   └── package.json              # Server dependencies
+├── supabase/
+│   └── migrations/
+│       ├── 001_create_documents_table.sql  # Database schema
+│       └── 002_create_rls_policies.sql     # Security policies
+├── docs/
+│   ├── SUPABASE_SETUP.md         # Detailed Supabase setup guide
+│   └── DEPLOYMENT.md             # Production deployment guide
+├── .env.example                  # Environment variables template
+├── package.json                  # Frontend dependencies
+└── README.md                     # This file
 ```
 
 ## Configuration
@@ -174,60 +210,94 @@ Edit `src/App.jsx` to customize:
 - Collaboration settings
 - Initial data
 
-## Migration from Custom Socket.io Implementation
+## What's New in Production Branch
 
-This branch uses CKEditor's official collaboration instead of the custom Socket.io implementation. Key differences:
+This branch (`production-ready`) adds:
 
-- ✅ **Better conflict resolution**: Uses Operational Transformation instead of version-based
-- ✅ **Built-in features**: Cursor tracking, user presence, comments, track changes
-- ✅ **More reliable**: Handled by CKEditor's battle-tested collaboration system
-- ⚠️ **Requires CKEditor Cloud Services**: Need to set up Cloud Services or self-hosted server
-- ⚠️ **Token management**: Need to implement proper token generation
+- ✅ **Google OAuth Authentication** via Supabase Auth
+- ✅ **PostgreSQL Database** for document metadata storage
+- ✅ **Row Level Security** to protect user data
+- ✅ **Document Management Dashboard** with CRUD operations
+- ✅ **JWT Token Generation** for CKEditor with user verification
+- ✅ **Production-Ready Backend** with proper authentication
+- ✅ **Deployment Documentation** for multiple platforms
+- ✅ **Comprehensive Setup Guides** for Supabase and external services
 
 ## Troubleshooting
 
-### "WebSocket URL not configured" Error
+### "Missing Supabase environment variables"
 
-- Make sure you've created a `.env` file with `VITE_CKEDITOR_WS_URL`
-- Restart the dev server after adding environment variables
-- Check that the WebSocket URL is correct (starts with `wss://`)
+- Ensure `.env` file exists in project root
+- Check variable names have `VITE_` prefix for frontend
+- Restart dev servers after updating `.env`
 
-### Connection Issues
+### "Unauthorized" / "Invalid token"
 
-- Verify CKEditor Cloud Services credentials are correct
-- Check that the token endpoint is working (`http://localhost:3001/cs-token`)
-- Check browser console for detailed error messages
-- Ensure the server is running on port 3001
+- Verify Supabase credentials are correct
+- Check that you're signed in (browser console)
+- Try signing out and back in
+- Ensure backend service role key is set correctly
 
-### Token Generation
+### Google OAuth redirect fails
 
-- The current implementation uses a mock token for testing
-- For production, implement proper token generation in `server/server.js`
-- See CKEditor Cloud Services API documentation for token generation
+- Verify redirect URI in Google Cloud Console matches Supabase callback URL exactly
+- Check Google OAuth is enabled in Supabase dashboard
+- Try in incognito window to rule out cookie issues
 
-### Changes Not Syncing
+### "Failed to generate token" / Token endpoint errors
 
-- Verify connection status indicator (should be green)
-- Check browser console for collaboration errors
-- Ensure both clients are connected to the same document (same `channelId`)
-- Verify WebSocket connection is established (check Network tab)
+- Check backend server is running on port 3001
+- Verify CKEDITOR_API_SECRET is set in backend `.env`
+- Check Authorization header is being sent from frontend
+- Look at backend logs for specific error messages
 
-## Known Limitations
+### CKEditor connection issues
 
-1. **Token Endpoint**: Currently uses mock tokens - needs production implementation
-2. **Authentication**: No user authentication system (add your own)
-3. **Persistence**: Document content is not persisted to a database (only in CKEditor Cloud Services)
-4. **Self-Hosted**: Requires CKEditor Cloud Services or self-hosted collaboration server setup
+- Verify WebSocket URL is correct (starts with `wss://`)
+- Check CKEditor environment is active in CKEditor dashboard
+- Ensure license key is valid and not expired
+- Check browser console for CKEditor errors
+
+### Documents not appearing in dashboard
+
+- Check Supabase RLS policies are enabled
+- Verify user is authenticated
+- Look at Network tab for Supabase API errors
+- Check documents table in Supabase Table Editor
+
+## Production Deployment
+
+This application is production-ready and can be deployed to various platforms:
+
+- **Vercel** (Frontend) + **Railway** (Backend) - Recommended
+- **AWS** (S3 + CloudFront + ECS/Lambda)
+- **VPS** with Docker Compose
+- **Netlify** + **Render/Heroku**
+
+See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for detailed deployment instructions.
+
+## Security Considerations
+
+- ✅ Service role key only in backend (never exposed to frontend)
+- ✅ Row Level Security enabled on all tables
+- ✅ JWT-based authentication for all API endpoints
+- ✅ Google OAuth for secure user authentication
+- ✅ Authorization header required for token generation
+- ✅ CORS configured for specific frontend origin
+- ✅ Environment variables for all secrets
 
 ## Future Enhancements
 
-- [ ] Implement proper token generation with user authentication
-- [ ] Add database persistence for document metadata
-- [ ] Add user authentication and authorization
-- [ ] Add document history/versioning
-- [ ] Add file upload support
-- [ ] Add document templates
-- [ ] Self-hosted collaboration server setup guide
+- [ ] Document sharing with other users (read/write permissions)
+- [ ] Document folders/organization
+- [ ] Document templates
+- [ ] Export to PDF/Word
+- [ ] File upload and image hosting
+- [ ] Activity log and audit trail
+- [ ] Email notifications for document changes
+- [ ] Public document sharing (view-only links)
+- [ ] Document versioning and restore
+- [ ] Self-hosted CKEditor collaboration server option
 
 ## License
 
