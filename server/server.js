@@ -138,7 +138,7 @@ app.options('/cs-token', (req, res) => {
 app.get('/cs-token', handleTokenRequest);
 app.post('/cs-token', handleTokenRequest);
 
-const PORT = process.env.PORT || 3001; // eslint-disable-line no-undef
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`CKEditor token endpoint: http://localhost:${PORT}/cs-token`);

@@ -27,7 +27,14 @@ import {
   RealTimeCollaborativeRevisionHistory,
   Comments,
   TrackChanges,
-  RevisionHistory
+  RevisionHistory,
+  // CKEditor AI – content recommendations (Chat, Quick Actions, Review)
+  AIChat,
+  AIQuickActions,
+  AIActions,
+  AIReviewMode,
+  AIBalloon,
+  AIEditorIntegration
   // PresenceList - removed because it requires a container element
   // We're already showing active users manually in the header
 } from 'ckeditor5-premium-features';
@@ -316,7 +323,14 @@ function App() {
       RealTimeCollaborativeRevisionHistory,
       Comments,
       TrackChanges,
-      RevisionHistory
+      RevisionHistory,
+      // CKEditor AI – content recommendations (Chat, Quick Actions, Review)
+      AIChat,
+      AIQuickActions,
+      AIActions,
+      AIReviewMode,
+      AIBalloon,
+      AIEditorIntegration
       // PresenceList removed - requires container element, we show users manually
     ],
     toolbar: {
@@ -335,6 +349,12 @@ function App() {
         '|',
         'formatPainter',
         '|',
+        // AI / content recommendations
+        'toggleAi',
+        'aiQuickActions',
+        'ask-ai',
+        'improve-writing',
+        '|',
         'undo',
         'redo'
       ]
@@ -350,6 +370,15 @@ function App() {
       channelId: documentId || 'default-doc', // Use document ID as channel ID
       // User identity - this identifies the current user in collaboration
       // Note: This should match the userId used in token generation
+    },
+    // CKEditor AI – content recommendations (Chat, Quick Actions, Review)
+    // Requires license key and Cloud Services; uses same channelId for chat history per document
+    ai: {
+      container: {
+        type: 'overlay',
+        side: 'right',
+        visibleByDefault: false
+      }
     },
     // Comments configuration
     comments: {
