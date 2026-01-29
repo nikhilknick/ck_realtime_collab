@@ -30,8 +30,8 @@ if (!CKEDITOR_ENVIRONMENT_ID || !CKEDITOR_API_SECRET) {
 export function generateCKEditorToken(user, channelId) {
   console.log('Generating token with CKEDITOR_ENVIRONMENT_ID:', CKEDITOR_ENVIRONMENT_ID);
 
-  // Use the plain environment ID
-  const audience = CKEDITOR_ENVIRONMENT_ID;
+  // CKEditor requires aud to be the full Cloud Services URL (at least 20 chars)
+  const audience = `https://${CKEDITOR_ENVIRONMENT_ID}.cke-cs.com`;
   console.log('Using audience:', audience);
 
   const payload = {
@@ -88,7 +88,7 @@ export function generateCKEditorToken(user, channelId) {
  */
 export function generateCKEditorTokenWithRole(user, channelId, role = 'writer') {
   const payload = {
-    aud: CKEDITOR_ENVIRONMENT_ID,
+    aud: `https://${CKEDITOR_ENVIRONMENT_ID}.cke-cs.com`,
     iat: Math.floor(Date.now() / 1000),
     sub: user.id,
     user: {
