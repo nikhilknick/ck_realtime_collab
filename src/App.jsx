@@ -57,7 +57,7 @@ const LICENSE_KEY = import.meta.env.VITE_CKEDITOR_LICENSE_KEY || '';
 // Editor Component
 function Editor({ document, onBack }) {
   const { user, getAccessToken } = useAuth();
-  const [content, setContent] = useState('<p>Loading...</p>');
+  const [content, setContent] = useState('<p>Start Collaborating ... </p>');
   const [activeUsers, setActiveUsers] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState(null);
