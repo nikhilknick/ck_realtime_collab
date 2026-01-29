@@ -21,11 +21,16 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session:', session ? 'Found' : 'Not found');
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      console.log('Initial session:', session ? 'Found' : 'Not found', error ? `Error: ${error.message}` : '');
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // If there's a session, clean up the URL hash
+      if (session && window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
     });
 
     // Listen for auth changes
@@ -34,6 +39,11 @@ export const AuthProvider = ({ children }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // Clean up URL hash after successful sign in
+      if (event === 'SIGNED_IN' && window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
     });
 
     return () => subscription.unsubscribe();
